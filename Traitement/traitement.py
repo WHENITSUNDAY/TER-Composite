@@ -18,14 +18,17 @@ if __name__ == "__main__":
     show = True if len(sys.argv) > 2 else False
     
     img = cv.imread(img_path)
-
     #Prétaitement de l'image (recadrage, conversion en niveaux de gris et floutage)
-    L = max(img.shape)  
+    L = max(img.shape)
+    w, h = img.shape[1], img.shape[0]
+    img = cv.resize(img, (int((w/L)*500), int((h/L)*500)))
     gray = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+    gray = cv.resize(gray, (int((w/L)*500), int((h/L)*500)))
     blur = cv.GaussianBlur(gray, (9, 9), 2)
-
+    #blur = cv.addWeighted(blur, 1.5, cv.GaussianBlur(blur, (0, 0), 10), -0.5, 0)
+    #cv.imshow('Blurred Image', blur)
     #Détection des cercles avec la transformée de Hough
-    circles = cv.HoughCircles(blur, method=cv.HOUGH_GRADIENT, dp=1, minDist=50, param1=50, param2=18, minRadius=25, maxRadius=50)
+    circles = cv.HoughCircles(blur, method=cv.HOUGH_GRADIENT, dp=1, minDist=78, param1=10, param2=7, minRadius=34, maxRadius=40)
 
     print(f"Nombre de cercles détectés : {0 if circles is None else len(circles[0])}")
     print(f"Ecriture des paramètres (coordonnées du centre et rayon) des cercles dans le fichier circles.dat")
