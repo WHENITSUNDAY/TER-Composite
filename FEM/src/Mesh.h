@@ -3,7 +3,20 @@
 
 #include <vector>
 #include <string>
+#include <map>
+#include <set>
+#include <fstream>
 #include <Eigen/Dense>
+
+// Structure pour stocker les informations d'une arête
+struct Edge {
+    int node1, node2;
+    int tag;  // 11 pour fibre-matrice, 12 pour bord
+    
+    Edge(int n1, int n2, int t);
+    
+    bool operator<(const Edge& other) const;
+};
 
 class Node {
     // Classe représentant un noeud du maillage (coordonnées et numéro)
@@ -45,9 +58,17 @@ class Element {
 class Mesh {
     // Classe globale représentant le maillage en utilisant des listes d'objets Node et Element.
     // Permet de charger un maillage depuis un fichier Gmsh et de le manipuler dans le programme.
+    // Intègre également la lecture du fichier et la gestion des arêtes (anciennement dans MeshReader).
     private:
         std::vector<Node> _nodes; 
         std::vector<Element> _elements;
+        std::map<int, Material*> _materialMap;  // tag -> Material
+        std::set<Edge> _edges;
+
+        // Méthodes privées pour la lecture du fichier Gmsh
+        void readNodes(std::ifstream& file);
+        void readElements(std::ifstream& file);
+        void printStatistics() const;
 
     public:
         Mesh();
@@ -64,7 +85,15 @@ class Mesh {
         int getNbNodes() const { return _nodes.size(); }
         int getNbElements() const { return _elements.size(); }
         
+        // Associer un matériau à un tag physique (doit être appelé avant loadFromGmsh)
+        void setMaterial(int tag, Material* mat);
+        
+        // Charger le maillage depuis un fichier Gmsh
         void loadFromGmsh(const std::string& filename);
+        
+        // Accéder aux arêtes
+        const std::set<Edge>& getEdges() const;
+        std::vector<Edge> getEdgesByTag(int tag) const;
 };
 
 #endif

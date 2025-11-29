@@ -12,9 +12,12 @@ set(CMAKE_BUILD_TYPE Debug)
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-set(SOURCES src/Material.cpp src/Mesh.cpp src/Solver.cpp src/main.cpp src/MeshReader.cpp)
+set(SOURCES src/Mesh.cpp)
 
-add_executable(run ${SOURCES})
-target_link_libraries(run Eigen3::Eigen)
+add_library(mesh_lib STATIC ${SOURCES})
+target_link_libraries(mesh_lib Eigen3::Eigen)
 
-install(TARGETS run DESTINATION bin)
+# Installation commented out until main.cpp is created
+# add_executable(run ${SOURCES} src/main.cpp)
+# target_link_libraries(run mesh_lib Eigen3::Eigen)
+# install(TARGETS run DESTINATION bin)
