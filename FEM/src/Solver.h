@@ -6,6 +6,7 @@
 #include <vector>
 #include "Mesh.h"
 #include "Material.h"
+#include "BoundaryConditions.h"
 
 class Solver {
     // Classe permettant de résoudre le système global KU=F avec la méthode du gradient conjugué.
@@ -20,6 +21,7 @@ class Solver {
         
         double _tol;
         int _maxIter;
+        BoundaryConditions _bc;
         
     public:
         Solver(Mesh& mesh, double tolerance = 1e-6, int maxIterations = 1000);
@@ -27,6 +29,8 @@ class Solver {
         void assemble();
         void applyBC();
         void solveConjugateGradient(); 
+        
+        void setBoundaryConditions(const BoundaryConditions& bc) { _bc = bc; }
         
         Eigen::VectorXd getU() const { return _U; }
         void saveResults(const std::string& filename) const;
