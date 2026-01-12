@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <vector>
+#include <map>
 #include "Mesh.h"
 #include "Material.h"
 
@@ -21,6 +22,10 @@ class Solver {
         double _tol;
         int _maxIter;
         
+        // Conditions aux limites
+        std::map<int, double> _dirichletBCs; // globalDof -> prescribed displacement
+        std::map<int, double> _neumannBCs; // globalDof -> applied force
+        
     public:
         Solver(Mesh& mesh, double tolerance = 1e-6, int maxIterations = 1000);
 
@@ -28,8 +33,14 @@ class Solver {
         void applyBC();
         void solveConjugateGradient(); 
         
+        // Méthodes pour définir les CL
+        void setDirichletBC(int nodeId, int dof, double value);
+        void setNeumannBC(int nodeId, int dof, double value);
+        void clearBCs();
+        
         Eigen::VectorXd getU() const { return _U; }
         void saveResults(const std::string& filename) const;
+        void saveVTK(const std::string& filename) const;
 };
 
 #endif

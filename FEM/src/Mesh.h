@@ -37,9 +37,10 @@ class Element {
         double getArea() const { return _area; }
         Material* getMaterial() const { return _mat; }
         const std::vector<int>& getNodeIds() const { return _nodeIds; }
+        const Eigen::Matrix<double, 6, 6>& getKe() const { return _Ke; }
 
-        void setArea(double A) { _area = A; }
-        void computeKe();
+        void computeArea(const Node& n1, const Node& n2, const Node& n3);
+        void computeKe(const Node& n1, const Node& n2, const Node& n3);
 };
 
 class Mesh {
@@ -60,11 +61,13 @@ class Mesh {
 
         Node& getNode(int id);
         Element& getElement(int id);
+        std::vector<Element>& getElementsRef() { return _elements; }
 
         int getNbNodes() const { return _nodes.size(); }
         int getNbElements() const { return _elements.size(); }
         
         void loadFromGmsh(const std::string& filename);
+        void initializeElements();
 };
 
 #endif

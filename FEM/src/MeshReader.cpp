@@ -2,18 +2,19 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <vector>
+#include <fstream>
+#include <string>
 
-// ==================== Edge ====================
+using namespace std;
+using namespace Eigen;
 
-Edge::Edge(int n1, int n2, int t) 
-    : node1(std::min(n1, n2)), node2(std::max(n1, n2)), tag(t) {}
+Edge::Edge(int n1, int n2, int t) : node1(min(n1, n2)), node2(max(n1, n2)), tag(t) {}
 
 bool Edge::operator<(const Edge& other) const {
     if (node1 != other.node1) return node1 < other.node1;
     return node2 < other.node2;
 }
-
-// ==================== MeshReader ====================
 
 MeshReader::MeshReader(Mesh* m) : mesh(m) {}
 
@@ -21,19 +22,19 @@ void MeshReader::setMaterial(int tag, Material* mat) {
     materialMap[tag] = mat;
 }
 
-void MeshReader::readGmshFile(const std::string& filename) {
-    std::ifstream file(filename);
+void MeshReader::readGmshFile(const string& filename) {
+    ifstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Erreur : impossible d'ouvrir " << filename << std::endl;
+        cerr << "Erreur : impossible d'ouvrir " << filename << endl;
         return;
     }
     
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.find("$Nodes") != std::string::npos) {
+    string line;
+    while (getline(file, line)) {
+        if (line.find("$Nodes") != string::npos) {
             readNodes(file);
         }
-        else if (line.find("$Elements") != std::string::npos) {
+        else if (line.find("$Elements") != string::npos) {
             readElements(file);
         }
     }
@@ -42,77 +43,76 @@ void MeshReader::readGmshFile(const std::string& filename) {
     printStatistics();
 }
 
-void MeshReader::readNodes(std::ifstream& file) {
-    std::string line;
-    std::getline(file, line);
+void MeshReader::readNodes(ifstream& file) {
+    string line;
+    getline(file, line);
     
     int numNodes;
-    std::istringstream iss(line);
+    istringstream iss(line);
     
     // Détecter le format Gmsh
     if (line.find_first_of("0123456789") == 0) {
-        std::vector<std::string> tokens;
-        std::string token;
+        vector<string> tokens;
+        string token;
         while (iss >> token) {
             tokens.push_back(token);
         }
         
         if (tokens.size() == 4) {
             // Format Gmsh 4.x : numEntityBlocks numNodes minNodeTag maxNodeTag
-            int numEntityBlocks = std::stoi(tokens[0]);
-            numNodes = std::stoi(tokens[1]);
+            int numEntityBlocks = stoi(tokens[0]);
+            numNodes = stoi(tokens[1]);
             
             for (int i = 0; i < numEntityBlocks; i++) {
-                std::getline(file, line);
-                std::istringstream blockHeader(line);
+                getline(file, line);
+                istringstream blockHeader(line);
                 int entityDim, entityTag, parametric, numNodesInBlock;
                 blockHeader >> entityDim >> entityTag >> parametric >> numNodesInBlock;
                 
                 // Lire les IDs des noeuds
-                std::vector<int> nodeIds;
+                vector<int> nodeIds;
                 for (int j = 0; j < numNodesInBlock; j++) {
-                    std::getline(file, line);
-                    nodeIds.push_back(std::stoi(line));
+                    getline(file, line);
+                    nodeIds.push_back(stoi(line));
                 }
                 
                 // Lire les coordonnées
                 for (int j = 0; j < numNodesInBlock; j++) {
-                    std::getline(file, line);
-                    std::istringstream coords(line);
+                    getline(file, line);
+                    istringstream coords(line);
                     double x, y, z;
                     coords >> x >> y >> z;
                     
-                    Eigen::Vector2d pos(x, y);
+                    Vector2d pos(x, y);
                     mesh->addNode(Node(nodeIds[j], pos));
                 }
             }
         }
         else {
             // Format Gmsh 2.2 : simple numNodes
-            numNodes = std::stoi(tokens[0]);
+            numNodes = stoi(tokens[0]);
             for (int i = 0; i < numNodes; i++) {
-                std::getline(file, line);
-                std::istringstream nodeStream(line);
+                getline(file, line);
+                istringstream nodeStream(line);
                 int id;
                 double x, y, z;
                 nodeStream >> id >> x >> y >> z;
                 
-                Eigen::Vector2d pos(x, y);
+                Vector2d pos(x, y);
                 mesh->addNode(Node(id, pos));
             }
         }
     }
     
-    std::getline(file, line);  // $EndNodes
-    std::cout << "Noeuds lus : " << mesh->getNbNodes() << std::endl;
+    getline(file, line);  // $EndNodes
 }
 
-void MeshReader::readElements(std::ifstream& file) {
-    std::string line;
-    std::getline(file, line);
+void MeshReader::readElements(ifstream& file) {
+    string line;
+    getline(file, line);
     
     int numElements;
-    std::istringstream iss(line);
+    istringstream iss(line);
     
     int elemIdCounter = 1;
     int numTrianglesMatrix = 0;
@@ -120,26 +120,26 @@ void MeshReader::readElements(std::ifstream& file) {
     int numEdgesFiberMatrix = 0;
     int numEdgesBoundary = 0;
     
-    std::vector<std::string> tokens;
-    std::string token;
+    vector<string> tokens;
+    string token;
     while (iss >> token) {
         tokens.push_back(token);
     }
     
     if (tokens.size() == 4) {
         // Format Gmsh 4.x : numEntityBlocks numElements minTag maxTag
-        int numEntityBlocks = std::stoi(tokens[0]);
-        numElements = std::stoi(tokens[1]);
+        int numEntityBlocks = stoi(tokens[0]);
+        numElements = stoi(tokens[1]);
         
         for (int i = 0; i < numEntityBlocks; i++) {
-            std::getline(file, line);
-            std::istringstream blockHeader(line);
+            getline(file, line);
+            istringstream blockHeader(line);
             int entityDim, entityTag, elementType, numElementsInBlock;
             blockHeader >> entityDim >> entityTag >> elementType >> numElementsInBlock;
             
             for (int j = 0; j < numElementsInBlock; j++) {
-                std::getline(file, line);
-                std::istringstream elemStream(line);
+                getline(file, line);
+                istringstream elemStream(line);
                 int elemId;
                 elemStream >> elemId;
                 
@@ -147,12 +147,12 @@ void MeshReader::readElements(std::ifstream& file) {
                     int n1, n2, n3;
                     elemStream >> n1 >> n2 >> n3;
                     
-                    std::vector<int> nodeIds = {n1, n2, n3};
+                    vector<int> nodeIds = {n1, n2, n3};
                     Material* mat = materialMap[entityTag];
                     
                     if (mat == nullptr) {
-                        std::cerr << "Attention : matériau non défini pour le tag " 
-                                  << entityTag << std::endl;
+                        cerr << "Attention : matériau non défini pour le tag " 
+                                  << entityTag << endl;
                     }
                     
                     mesh->addElement(Element(elemIdCounter++, nodeIds, mat));
@@ -174,16 +174,16 @@ void MeshReader::readElements(std::ifstream& file) {
     }
     else {
         // Format Gmsh 2.2
-        numElements = std::stoi(tokens[0]);
+        numElements = stoi(tokens[0]);
         
         for (int i = 0; i < numElements; i++) {
-            std::getline(file, line);
-            std::istringstream elemStream(line);
+            getline(file, line);
+            istringstream elemStream(line);
             
             int elemId, elemType, numTags;
             elemStream >> elemId >> elemType >> numTags;
             
-            std::vector<int> tags;
+            vector<int> tags;
             for (int t = 0; t < numTags; t++) {
                 int tag;
                 elemStream >> tag;
@@ -196,12 +196,12 @@ void MeshReader::readElements(std::ifstream& file) {
                 int n1, n2, n3;
                 elemStream >> n1 >> n2 >> n3;
                 
-                std::vector<int> nodeIds = {n1, n2, n3};
+                vector<int> nodeIds = {n1, n2, n3};
                 Material* mat = materialMap[physicalTag];
                 
                 if (mat == nullptr) {
-                    std::cerr << "Attention : matériau non défini pour le tag " 
-                              << physicalTag << std::endl;
+                    cerr << "Attention : matériau non défini pour le tag " 
+                              << physicalTag << endl;
                 }
                 
                 mesh->addElement(Element(elemIdCounter++, nodeIds, mat));
@@ -221,29 +221,19 @@ void MeshReader::readElements(std::ifstream& file) {
         }
     }
     
-    std::getline(file, line);  // $EndElements
-    
-    std::cout << "\nÉléments lus :" << std::endl;
-    std::cout << "  - Triangles matrice (tag 1) : " << numTrianglesMatrix << std::endl;
-    std::cout << "  - Triangles fibres (tag 2) : " << numTrianglesFiber << std::endl;
-    std::cout << "  - Arêtes fibre-matrice (tag 11) : " << numEdgesFiberMatrix << std::endl;
-    std::cout << "  - Arêtes bord (tag 12) : " << numEdgesBoundary << std::endl;
-    std::cout << "  - Total triangles : " << mesh->getNbElements() << std::endl;
+    getline(file, line);  // $EndElements
 }
 
 void MeshReader::printStatistics() const {
-    std::cout << "\n=== Statistiques du maillage ===" << std::endl;
-    std::cout << "Nombre de noeuds : " << mesh->getNbNodes() << std::endl;
-    std::cout << "Nombre d'éléments : " << mesh->getNbElements() << std::endl;
-    std::cout << "Nombre d'arêtes : " << edges.size() << std::endl;
+    // Statistiques simplifiées déjà affichées
 }
 
-const std::set<Edge>& MeshReader::getEdges() const {
+const set<Edge>& MeshReader::getEdges() const {
     return edges;
 }
 
-std::vector<Edge> MeshReader::getEdgesByTag(int tag) const {
-    std::vector<Edge> result;
+vector<Edge> MeshReader::getEdgesByTag(int tag) const {
+    vector<Edge> result;
     for (const auto& edge : edges) {
         if (edge.tag == tag) {
             result.push_back(edge);

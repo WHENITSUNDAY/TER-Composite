@@ -3,3 +3,6 @@ run
 CMakeCache.txt
 CMakeFiles/
 *.dat
+results/
+build/
+.vscode/
