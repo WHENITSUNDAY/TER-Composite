@@ -17,7 +17,7 @@ if(NOT Eigen3_FOUND)
 endif()
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-set(SOURCES src/Material.cpp src/Mesh.cpp src/Solver.cpp src/main.cpp src/MeshReader.cpp)
+set(SOURCES src/Material.cpp src/Mesh.cpp src/Solver.cpp src/main.cpp src/MeshReader.cpp src/Config.cpp src/Tests.cpp)
 
 add_executable(run ${SOURCES})
 if(Eigen3_FOUND)
