@@ -7,33 +7,28 @@
 using namespace std;
 using namespace Eigen;
 
-
-Node::Node(int nodeId, const Vector2d& coords) 
-    : _id(nodeId), _coords(coords) {}
-
-
-Element::Element(int elemId, const vector<int>& nodeIds, Material* mat)
-    : _id(elemId), _nodeIds(nodeIds), _mat(mat), _area(0.0) {
-    _Ke.setZero();
+Element::Element(int elemId, const vector<int>& nIds, Material* mat)
+    : id(elemId), nodeIds(nIds), material(mat), area(0.0) {
+    Ke.setZero();
 }
 
 void Element::computeArea(const Node& n1, const Node& n2, const Node& n3) {
-    Vector2d p1 = n1.getCoords();
-    Vector2d p2 = n2.getCoords();
-    Vector2d p3 = n3.getCoords();
+    Vector2d p1 = n1.coords;
+    Vector2d p2 = n2.coords;
+    Vector2d p3 = n3.coords;
     
-    _area = 0.5 * abs((p2.x() - p1.x()) * (p3.y() - p1.y()) - 
-                      (p3.x() - p1.x()) * (p2.y() - p1.y()));
+    area = 0.5 * abs((p2.x() - p1.x()) * (p3.y() - p1.y()) - 
+                     (p3.x() - p1.x()) * (p2.y() - p1.y()));
 }
 
 void Element::computeKe(const Node& n1, const Node& n2, const Node& n3) {
-    Vector2d p1 = n1.getCoords();
-    Vector2d p2 = n2.getCoords();
-    Vector2d p3 = n3.getCoords();
+    Vector2d p1 = n1.coords;
+    Vector2d p2 = n2.coords;
+    Vector2d p3 = n3.coords;
     
-    if (_area < 1e-12) {
-        cerr << "Attention : élément " << _id << " dégénéré (aire ~ 0)" << endl;
-        _Ke.setZero();
+    if (area < 1e-12) {
+        cerr << "Attention : élément " << id << " dégénéré (aire ~ 0)" << endl;
+        Ke.setZero();
         return;
     }
     
@@ -54,45 +49,23 @@ void Element::computeKe(const Node& n1, const Node& n2, const Node& n3) {
     B(2, 0) = c1;  B(2, 2) = c2;  B(2, 4) = c3;
     B(2, 1) = b1;  B(2, 3) = b2;  B(2, 5) = b3;
     
-    B /= (2.0 * _area);
+    B /= (2.0 * area);
     
     // Matrice de rigidité du matériau
-    Matrix3d C = _mat->getC();
+    Matrix3d C = material->getC();
     
     // Matrice de rigidité élémentaire
-    _Ke = _area * B.transpose() * C * B;
+    Ke = area * B.transpose() * C * B;
 }
 
-Mesh::Mesh() {}
-
-void Mesh::addNode(const Node& node) {
-    _nodes.push_back(node);
-}
-
-void Mesh::addElement(const Element& element) {
-    _elements.push_back(element);
-}
+Mesh::Mesh() : xMin(0), xMax(0), yMin(0), yMax(0) {}
 
 Node& Mesh::getNode(int id) {
-    // Les noeuds sont stockés avec des IDs qui commencent à 1
-    // Mais l'index dans le vecteur commence à 0
-    for (auto& node : _nodes) {
-        if (node.getId() == id) {
-            return node;
-        }
+    for (auto& node : nodes) {
+        if (node.id == id) return node;
     }
     cerr << "Erreur : noeud " << id << " introuvable!" << endl;
-    return _nodes[0];
-}
-
-Element& Mesh::getElement(int id) {
-    for (auto& elem : _elements) {
-        if (elem.getId() == id) {
-            return elem;
-        }
-    }
-    cerr << "Erreur : élément " << id << " introuvable!" << endl;
-    return _elements[0];
+    return nodes[0];
 }
 
 void Mesh::loadFromGmsh(const string& filename) {
@@ -104,24 +77,53 @@ void Mesh::loadFromGmsh(const string& filename) {
 }
 
 void Mesh::initializeElements() {
-    int countValid = 0;
-    double totalArea = 0.0;
-    
-    for (auto& elem : _elements) {
-        const vector<int>& nodeIds = elem.getNodeIds();
+    for (auto& elem : elements) {
+        Node& n1 = getNode(elem.nodeIds[0]);
+        Node& n2 = getNode(elem.nodeIds[1]);
+        Node& n3 = getNode(elem.nodeIds[2]);
         
-        Node& n1 = getNode(nodeIds[0]);
-        Node& n2 = getNode(nodeIds[1]);
-        Node& n3 = getNode(nodeIds[2]);
-        
-        // Calculer l'aire
         elem.computeArea(n1, n2, n3);
-        
-        if (elem.getArea() > 1e-12) {
-            // Calculer la matrice de rigidité élémentaire
+        if (elem.area > 1e-12) {
             elem.computeKe(n1, n2, n3);
-            countValid++;
-            totalArea += elem.getArea();
         }
     }
+}
+
+void Mesh::computeGeometry() {
+    if (nodes.empty()) return;
+    
+    // Calculer les limites
+    Vector2d first = nodes[0].coords;
+    xMin = xMax = first.x();
+    yMin = yMax = first.y();
+    
+    for (const auto& node : nodes) {
+        xMin = min(xMin, node.coords.x());
+        xMax = max(xMax, node.coords.x());
+        yMin = min(yMin, node.coords.y());
+        yMax = max(yMax, node.coords.y());
+    }
+    
+    // Identifier les nœuds de bord
+    leftNodes.clear();
+    rightNodes.clear();
+    topNodes.clear();
+    bottomNodes.clear();
+    
+    for (const auto& node : nodes) {
+        if (abs(node.coords.x() - xMin) < 1e-6) leftNodes.push_back(node.id);
+        if (abs(node.coords.x() - xMax) < 1e-6) rightNodes.push_back(node.id);
+        if (abs(node.coords.y() - yMin) < 1e-6) bottomNodes.push_back(node.id);
+        if (abs(node.coords.y() - yMax) < 1e-6) topNodes.push_back(node.id);
+    }
+}
+
+vector<int> Mesh::findNodesAtY(double y, double tol) const {
+    vector<int> result;
+    for (const auto& node : nodes) {
+        if (abs(node.coords.y() - y) < tol) {
+            result.push_back(node.id);
+        }
+    }
+    return result;
 }
